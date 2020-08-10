@@ -145,6 +145,8 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
         "item_ammoregen": "Ammo regen",  # ta
 
         "holdable_kamikaze": "Kamikaze",  # ta
+        "holdable_medkit": "Medkit",
+        "holdable_teleporter": "Teleporter",
     }
 
     flag_to_name = {
@@ -247,7 +249,7 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
             "ammo_belt",
             "ammo_mines",
             "ammo_nails",
-            "holdable_kamikaze"
+            "holdable_kamikaze",
         ])
 
         if ctf_capable or overload_capable or harvester_capable or ctf_1f_capable or requires_ta:
@@ -261,7 +263,7 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
             print_flag(harvester_capable, "harvester_capable")
             print()
 
-        print(aggregated_objects.keys())
+        # print(aggregated_objects.keys())
 
 
 def json_formatted(files_entities_list: Dict[str, List[Dict[str, str]]]):
