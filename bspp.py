@@ -103,7 +103,7 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
         "weapon_shotgun": "Shotgun",
         "weapon_railgun": "Railgun",
         "weapon_bfg": "BFG",
-
+        # ta:
         "weapon_chaingun": "Chaingun",
         "weapon_prox_launcher": "Proximity Launcher",
     }
@@ -125,7 +125,7 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
         "item_enviro": "Battle Suit",
         "item_haste": "Haste",
         "item_flight": "Flgiht",
-
+        # ta:
         "item_guard": "Guard",
         "item_doubler": "Doubler",
         "item_scout": "Scout",
@@ -133,7 +133,11 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
     }
 
     flag_to_name = {
-        "ctf_capable": "CTF capable"
+        "ctf_capable": "CTF capable",
+        "requires_ta": "Requires team arena",
+        "ctf_1f_capable": "One flag CTF capable",
+        "overload_capable": "Overload capable",
+        "harvester_capable": "Harvester capable",
     }
 
     def longest_value(*dicts: Iterable[Dict[any, str]]) -> int:
@@ -143,7 +147,7 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
                 max_v_len = max(max_v_len, len(v))
         return max_v_len
 
-    class_name_pad = longest_value(weapon_to_name, item_to_name)
+    class_name_pad = longest_value(weapon_to_name, item_to_name, flag_to_name)
 
     def aggregate_by_classname(objects: List[Dict[str, str]]) -> Dict[str, List[Dict[str, str]]]:
         by_classname = {}
@@ -167,8 +171,21 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
             name = flag_to_name.get(dict_key)
             print(name.ljust(class_name_pad, '.'), ": Yes")
 
-    def check_ctf_capable(objects: Dict[str, List[any]]) -> bool:
-        return "team_CTF_blueflag" in objects or "team_CTF_blueflag" in objects
+    def check_ctf_capable(objects: Dict[str, any]) -> bool:
+        return "team_CTF_blueflag" in objects and "team_CTF_blueflag" in objects
+
+    def check_1f_ctf_capable(objects: Dict[str, any]) -> bool:
+        return "team_CTF_neutralflag" in objects
+
+    def check_overload_capable(objects: Dict[str, any]) -> bool:
+        return "team_redobelisk" in objects and "team_blueobelisk" in objects
+
+    def check_harvester_capable(objects: Dict[str, any]) -> bool:
+        return "team_neutralobelisk" in objects
+
+    def has_any_key(objects: Dict[str, any], key_list: Iterable[str]) -> bool:
+        haystack_keyset = set(objects.keys())
+        return any([x in haystack_keyset for x in key_list])
 
     def item_filter(item):
         return item.startswith("item_") and not item in items_filtered
@@ -200,13 +217,32 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
         print()
 
         ctf_capable = check_ctf_capable(aggregated_objects)
+        overload_capable = check_overload_capable(aggregated_objects)
+        harvester_capable = check_harvester_capable(aggregated_objects)
+        ctf_1f_capable = check_1f_ctf_capable(aggregated_objects)
 
-        if ctf_capable:
+        requires_ta = overload_capable or harvester_capable or ctf_1f_capable or has_any_key(aggregated_objects, [
+            "item_guard",
+            "item_doubler",
+            "item_scout",
+            "item_ammoregen",
+            "weapon_chaingun",
+            "weapon_prox_launcher",
+        ])
+
+        if ctf_capable or overload_capable or harvester_capable or ctf_1f_capable or requires_ta:
             print("Properties")
             print("-------")
             print()
+            print_flag(requires_ta, "requires_ta")
             print_flag(ctf_capable, "ctf_capable")
+            print_flag(ctf_1f_capable, "ctf_1f_capable")
+            print_flag(overload_capable, "overload_capable")
+            print_flag(harvester_capable, "harvester_capable")
+            print_flag(harvester_capable, "harvester_capable")
             print()
+
+        print(aggregated_objects.keys())
 
 
 def json_formatted(files_entities_list: Dict[str, List[Dict[str, str]]]):
