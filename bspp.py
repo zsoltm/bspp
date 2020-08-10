@@ -143,6 +143,8 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
         "item_doubler": "Doubler",  # ta
         "item_scout": "Scout",  # ta
         "item_ammoregen": "Ammo regen",  # ta
+
+        "holdable_kamikaze": "Kamikaze",  # ta
     }
 
     flag_to_name = {
@@ -201,7 +203,7 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
         return any([x in haystack_keyset for x in key_list])
 
     def item_filter(item):
-        return item.startswith("ammo_") or (item.startswith("item_") and not item in items_filtered)
+        return item.startswith("ammo_") or  item.startswith("holdable_") or (item.startswith("item_") and not item in items_filtered)
 
     for map_name, objects in files_entities_list.items():
         aggregated_objects = aggregate_by_classname(objects)
@@ -245,6 +247,7 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
             "ammo_belt",
             "ammo_mines",
             "ammo_nails",
+            "holdable_kamikaze"
         ])
 
         if ctf_capable or overload_capable or harvester_capable or ctf_1f_capable or requires_ta:
