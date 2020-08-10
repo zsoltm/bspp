@@ -103,9 +103,9 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
         "weapon_shotgun": "Shotgun",
         "weapon_railgun": "Railgun",
         "weapon_bfg": "BFG",
-        # ta:
-        "weapon_chaingun": "Chaingun",
-        "weapon_prox_launcher": "Proximity Launcher",
+        "weapon_chaingun": "Chaingun",  # ta
+        "weapon_prox_launcher": "Proximity Launcher",  # ta
+        "weapon_nailgun": "Nailgun",  # ta
     }
 
     items_filtered = {'item_botroam'}
@@ -125,11 +125,24 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
         "item_enviro": "Battle Suit",
         "item_haste": "Haste",
         "item_flight": "Flgiht",
-        # ta:
-        "item_guard": "Guard",
-        "item_doubler": "Doubler",
-        "item_scout": "Scout",
-        "item_ammoregen": "Ammo regen",
+
+        # ammo:
+        "ammo_bullets": "Bullets",
+        "ammo_shells": "Shotgun shells",
+        "ammo_grenades": "Grenades",
+        "ammo_rockets": "Rockets",
+        "ammo_cells": "Plasma cells",
+        "ammo_lightning": "Lightning charge",
+        "ammo_slugs": "Slugs",
+        "ammo_belt": "Chaingun ammo", # ta
+        "ammo_nails": "Nails",  # ta
+        "ammo_mines": "Proximity mines",  # ta
+        "ammo_bfg": "BFG Ammo",
+
+        "item_guard": "Guard",  # ta
+        "item_doubler": "Doubler",  # ta
+        "item_scout": "Scout",  # ta
+        "item_ammoregen": "Ammo regen",  # ta
     }
 
     flag_to_name = {
@@ -188,7 +201,7 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
         return any([x in haystack_keyset for x in key_list])
 
     def item_filter(item):
-        return item.startswith("item_") and not item in items_filtered
+        return item.startswith("ammo_") or (item.startswith("item_") and not item in items_filtered)
 
     for map_name, objects in files_entities_list.items():
         aggregated_objects = aggregate_by_classname(objects)
@@ -228,6 +241,10 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
             "item_ammoregen",
             "weapon_chaingun",
             "weapon_prox_launcher",
+            "weapon_nailgun",
+            "ammo_belt",
+            "ammo_mines",
+            "ammo_nails",
         ])
 
         if ctf_capable or overload_capable or harvester_capable or ctf_1f_capable or requires_ta:
@@ -238,7 +255,6 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
             print_flag(ctf_capable, "ctf_capable")
             print_flag(ctf_1f_capable, "ctf_1f_capable")
             print_flag(overload_capable, "overload_capable")
-            print_flag(harvester_capable, "harvester_capable")
             print_flag(harvester_capable, "harvester_capable")
             print()
 
