@@ -39,7 +39,9 @@ obj_string_exp = re.compile(r'\s*"([^"]*)"\s*')
 def parse_entity_obj(lines: Iterable[str]) -> List[Dict[str, str]]:
     in_obj = False
     object: Dict[str, str]
+    line_no = 0
     for line in lines:
+        line_no += 1
         if line == "\0":
             continue
         if not in_obj:
@@ -47,24 +49,24 @@ def parse_entity_obj(lines: Iterable[str]) -> List[Dict[str, str]]:
                 in_obj = True
                 object = {}
                 continue
-            raise Exception("Expected object open curly")
+            raise Exception(f"Expected object open curly at {line_no}")
         else:
             if obj_end_exp.match(line):
                 in_obj = False
                 if len(object) == 0 or not "classname" in object:
-                    raise Exception("Illegal empty object")
+                    print(f"WARN: empty object at line {line_no}")
                 yield object
                 continue
             m = obj_string_exp.match(line)
             if not m or m.start() > 0:
-                raise Exception("Expected string literal key")
+                raise Exception(f"Expected string literal key at {line_no}")
             key = m[1]
             m = obj_string_exp.match(line, m.end())
             if not m or m.end() < len(line):
-                raise Exception("Expected string literal value")
+                raise Exception(f"Expected string literal value at {line_no}")
             value = m[1]
             if key in object:
-                print(f"WARN: Duplicate key: {key}")
+                print(f"WARN: Duplicate key: {key} at {line_no}")
             object[key] = value
 
 def process_entities(bsp_file: IO):
@@ -180,7 +182,8 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
                 name = class_to_name.get(class_name, None)
                 count = len(elements)
                 if not name:
-                    raise Exception(f"Unknown class: {class_name}")
+                    print(f"WARN: Unknown class: {class_name}")
+                    continue
                 print(name.ljust(class_name_pad, '.'), ": ×%d" % count)
 
     def print_flag(flag: bool, dict_key: str) -> None:
@@ -208,14 +211,24 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
         return item.startswith("ammo_") or  item.startswith("holdable_") or (item.startswith("item_") and not item in items_filtered)
 
     for map_name, objects in files_entities_list.items():
-        aggregated_objects = aggregate_by_classname(objects)
-        worldspawns = aggregated_objects.get("worldspawn", None)
-        if not worldspawns or len(worldspawns) != 1:
-            raise Exception("Expected exactly one worldspawn")
-        map_title = worldspawns[0].get("message", None)
-        if not map_title:
-            map_title = map_name
-            print(f"WARN: No message for worldspawn for {map_name}")
+        try:
+            aggregated_objects = aggregate_by_classname(objects)
+            worldspawns = aggregated_objects.get("worldspawn", None)
+            if not worldspawns:
+                raise Exception(f"No worldspawn for {map_name}")
+            worldspawn = worldspawns.pop()
+            map_title = worldspawn.get("message", None)
+            if not map_title:
+                map_title = map_name
+                print(f"WARN: No message for worldspawn for {map_name}")
+
+            ctf_capable = check_ctf_capable(aggregated_objects)
+            overload_capable = check_overload_capable(aggregated_objects)
+            harvester_capable = check_harvester_capable(aggregated_objects)
+            ctf_1f_capable = check_1f_ctf_capable(aggregated_objects)
+        except:
+            print(f"ERROR: unexpected error while generating text output for {map_name}, skipping")
+            continue
 
         print(map_title)
         print("=" * len(map_title))
@@ -233,11 +246,6 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
         print_class_counts(weapon_to_name, "weapon_", class_name_pad, aggregated_objects)
         print()
 
-        ctf_capable = check_ctf_capable(aggregated_objects)
-        overload_capable = check_overload_capable(aggregated_objects)
-        harvester_capable = check_harvester_capable(aggregated_objects)
-        ctf_1f_capable = check_1f_ctf_capable(aggregated_objects)
-
         requires_ta = overload_capable or harvester_capable or ctf_1f_capable or has_any_key(aggregated_objects, [
             "item_guard",
             "item_doubler",
@@ -254,7 +262,7 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
 
         if ctf_capable or overload_capable or harvester_capable or ctf_1f_capable or requires_ta:
             print("Properties")
-            print("-------")
+            print("----------")
             print()
             print_flag(requires_ta, "requires_ta")
             print_flag(ctf_capable, "ctf_capable")
