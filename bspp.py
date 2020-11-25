@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
 import json
+import os
 import re
 import struct
 from typing import List, Dict, Callable, IO, Iterable, Tuple, Union, Optional
-from zipfile import ZipFile
+from zipfile import ZipFile, ZipInfo
 
 pk3_file_exp = re.compile(r"\.pk3$", re.I)
 bsp_file_exp = re.compile(r"\.bsp$", re.I)
@@ -15,6 +16,10 @@ bsp_version = b"\x2e\0\0\0"
 
 def is_pk3_bsp(pk3_zip_entry: str):
     return pk3_bsp_file.match(pk3_zip_entry)
+
+
+def is_pk3(dir_file: str) -> bool:
+    return len(dir_file) > 4 and dir_file[-4:].lower() == ".pk3"
 
 
 def get_lump(bsp_file: IO, index: int) -> bytes:
@@ -79,23 +84,50 @@ def process_entities(bsp_file: IO):
     return list(parse_entity_obj(str(get_lump(bsp_file, 0), encoding='ascii').splitlines()))
 
 
-def process(files: List[str]) -> Iterable[Tuple[str, List[Dict[str, str]]]]:
+def process(files: Iterable[str]) -> Iterable[Tuple[str, List[Dict[str, str]]]]:
     for file_name in files:
-        if pk3_file_exp.search(file_name):
-            print(f"Processing PK3 {file_name}")
-            with ZipFile(file_name, 'r') as pk3:
-                bsp_file_names = list(filter(is_pk3_bsp, pk3.namelist()))
-                print("Maps:", ", ".join(bsp_file_names))
-                for bsp_file_name in bsp_file_names:
-                    print(f"Processing pk3 map: {bsp_file_name}")
-                    with pk3.open(bsp_file_name, 'r') as bsp_file:
-                        yield bsp_file_name[len("maps/"):-len(".bsp")], process_entities(bsp_file)
-        elif bsp_file_exp.search(file_name):
-            print(f"Processing BSP {file_name}")
-            with open(file_name, 'rb') as bsp_file:
-                yield file_name[0:-len(".bsp")], process_entities(bsp_file)
+        if os.path.isdir(file_name):
+            for root, dirs, files in os.walk(file_name):
+                pk3_files = [dir_file for dir_file in files if is_pk3(dir_file)]
+                for pk3_file in pk3_files:
+                    yield from process_file(os.path.join(root, pk3_file))
         else:
-            raise Exception(f"Unknown file type: {file_name}")
+            yield from process_file(file_name)
+
+
+def process_file(file_name: str) -> Iterable[Tuple[str, List[Dict[str, str]]]]:
+    if pk3_file_exp.search(file_name):
+        print(f"Processing PK3 {file_name}")
+        yield from process_pk3_file(file_name)
+    elif bsp_file_exp.search(file_name):
+        print(f"Processing BSP {file_name}")
+        with open(file_name, 'rb') as bsp_file:
+            yield file_name[0:-len(".bsp")], process_entities(bsp_file)
+    else:
+        raise ValueError(f"Unknown file type: {file_name}")
+
+
+def process_pk3_file(file_name: str) -> Iterable[Tuple[str, List[Dict[str, str]]]]:
+    with ZipFile(file_name, 'r') as pk3_zip:
+        bsp_file_names = list(filter(is_pk3_bsp, pk3_zip.namelist()))
+        yield from process_pk3_zip(pk3_zip, bsp_file_names)
+
+
+def process_pk3_zip(
+        pk3_zip: ZipFile, name_list: Optional[List[str]] = None, info_list: Optional[List[ZipInfo]] = None) \
+        -> Iterable[Tuple[str, List[Dict[str, str]]]]:
+    if not (name_list is None or info_list is None):
+        raise ValueError("One of name_list or info_list should be specified")
+    if not name_list:
+        name_list = []
+    if info_list:
+        name_list.extend([i.filename for i in info_list])
+    print("Maps:", ", ".join(name_list))
+    for bsp_file_name in name_list:
+        print(f"Processing pk3 map: {bsp_file_name}")
+        with pk3_zip.open(bsp_file_name, 'r') as bsp_file:
+            entities = process_entities(bsp_file)
+        yield bsp_file_name[len("maps/"):-len(".bsp")], entities
 
 
 def map_dict(map_objects: Iterable[Tuple[str, List[Dict[str, str]]]]) -> Dict[str, List[Dict[str, str]]]:
@@ -231,6 +263,11 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
         return item.startswith("ammo_") or item.startswith("holdable_") or (
                     item.startswith("item_") and item not in items_filtered)
 
+    def section_title(title: str):
+        print(title)
+        print("-" * len(title))
+        print()
+
     for map_name, object_list in files_entities_list.items():
         try:
             aggregated_objects = aggregate_by_classname(object_list)
@@ -256,14 +293,10 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
         print()
         print("Map name...:", map_name)
         print()
-        print("Items")
-        print("-----")
-        print()
+        section_title("Items")
         print_class_counts(_item_to_name, item_filter, aggregated_objects)
         print()
-        print("Weapons")
-        print("-------")
-        print()
+        section_title("Weapons")
         print_class_counts(_weapon_to_name, "weapon_", aggregated_objects)
         print()
 
@@ -282,9 +315,7 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
         ])
 
         if ctf_capable or overload_capable or harvester_capable or ctf_1f_capable or requires_ta:
-            print("Properties")
-            print("----------")
-            print()
+            section_title("Properties")
             print_flag(requires_ta, "requires_ta")
             print_flag(ctf_capable, "ctf_capable")
             print_flag(ctf_1f_capable, "ctf_1f_capable")
@@ -306,7 +337,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='BSP info tool')
     parser.add_argument('-j', dest='output', action='store_const', default=plain_text, const=json_formatted,
                         help='JSON output')
-    parser.add_argument('files', metavar='F', nargs='+', help="a .bsp or pk3 file to be processed")
+    parser.add_argument('files', metavar='F', nargs='+', help="a .bsp or pk3 or file or folder to be processed")
     parsed = parser.parse_args(sys.argv)
 
     if len(parsed.files) < 2:
