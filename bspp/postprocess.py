@@ -1,6 +1,7 @@
 import logging
-from dataclasses import dataclass
 from typing import Dict, List, Iterable, Union, Callable
+
+from .model import Map, Flags
 
 log = logging.getLogger(__name__)
 items_filtered = {'item_botroam'}
@@ -47,25 +48,7 @@ def item_filter(item):
            or (item.startswith("item_") and item not in items_filtered)
 
 
-@dataclass
-class Flags:
-    ctf_capable: bool
-    overload_capable: bool
-    harvester_capable: bool
-    ctf_1f_capable: bool
-    requires_ta: bool
-
-
-@dataclass
-class PP:
-    map_title: str
-    map_name: str
-    aggregated_items: Dict[str, int]
-    aggregated_weapons: Dict[str, int]
-    flags: Flags
-
-
-def pp_map(map_name: str, entity_list: List[Dict[str, str]]) -> PP:
+def pp_map(map_name: str, entity_list: List[Dict[str, str]]) -> Map:
     aggregated_objects = aggregate_by_classname(entity_list)
     world_spawns = aggregated_objects.get("worldspawn", None)
     if not world_spawns:
@@ -94,7 +77,7 @@ def pp_map(map_name: str, entity_list: List[Dict[str, str]]) -> PP:
         "holdable_kamikaze",
     ])
 
-    return PP(
+    return Map(
         map_title,
         map_name,
         filter_aggregated(item_filter, aggregated_objects),
@@ -107,6 +90,6 @@ def pp_map(map_name: str, entity_list: List[Dict[str, str]]) -> PP:
             requires_ta))
 
 
-def pp(entities_by_map: Dict[str, List[Dict[str, str]]]) -> Iterable[PP]:
+def pp(entities_by_map: Dict[str, List[Dict[str, str]]]) -> Iterable[Map]:
     for map_name, entity_list in entities_by_map.items():
         yield pp_map(map_name, entity_list)
