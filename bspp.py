@@ -4,8 +4,12 @@ import json
 import os
 import re
 import struct
+import logging
 from typing import List, Dict, Callable, IO, Iterable, Tuple, Union, Optional
 from zipfile import ZipFile, ZipInfo
+
+
+log = logging.getLogger(__name__)
 
 pk3_file_exp = re.compile(r"\.pk3$", re.I)
 bsp_file_exp = re.compile(r"\.bsp$", re.I)
@@ -26,15 +30,15 @@ def get_lump(bsp_file: IO, index: int) -> bytes:
     bsp_data = bsp_file.read()
     bsp_data_view = memoryview(bsp_data)
     bsp_size = len(bsp_data)
-    print(f"BSP size: {bsp_size}")
+    log.debug(f"BSP size: {bsp_size}")
     if bytes(bsp_data_view[0:4]) != bsp_head:
         raise Exception("Invalid BSP header")
     if bytes(bsp_data_view[4:8]) != bsp_version:
         raise Exception("Invalid BSP version")
     dir_entry_ofs = 8 + index * 8
     (offset, length) = struct.unpack(
-        '<2i', bytes(bsp_data_view[dir_entry_ofs:dir_entry_ofs + 8]))  # index 0 lump: entites
-    print(f"Entities lump is at offset {offset} with size {length}")
+        '<2i', bytes(bsp_data_view[dir_entry_ofs:dir_entry_ofs + 8]))  # index 0 lump: entities
+    log.debug(f"Entities lump is at offset {offset} with size {length}")
     if length < 0 or offset < 0x90 or offset + length > bsp_size:
         raise Exception("Invalid direntry offsets")
     return bytes(bsp_data_view[offset:offset + length - 1])
@@ -64,7 +68,8 @@ def parse_entity_obj(lines: Iterable[str]) -> List[Dict[str, str]]:
             if obj_end_exp.match(line):
                 in_obj = False
                 if len(entity_obj) == 0 or "classname" not in entity_obj:
-                    print(f"WARN: empty object at line {line_no}")
+                    log.warning("Empty object at line %d", line_no)
+                    continue
                 yield entity_obj
                 continue
             m = obj_string_exp.match(line)
@@ -76,7 +81,7 @@ def parse_entity_obj(lines: Iterable[str]) -> List[Dict[str, str]]:
                 raise Exception(f"Expected string literal value at {line_no}")
             value = m[1]
             if key in entity_obj:
-                print(f"WARN: Duplicate key: {key} at {line_no}")
+                log.warning("Duplicate key: %s at %d", key, line_no)
             entity_obj[key] = value
 
 
@@ -97,10 +102,10 @@ def process(files: Iterable[str]) -> Iterable[Tuple[str, List[Dict[str, str]]]]:
 
 def process_file(file_name: str) -> Iterable[Tuple[str, List[Dict[str, str]]]]:
     if pk3_file_exp.search(file_name):
-        print(f"Processing PK3 {file_name}")
+        log.info("Processing PK3 %s", file_name)
         yield from process_pk3_file(file_name)
     elif bsp_file_exp.search(file_name):
-        print(f"Processing BSP {file_name}")
+        log.info("Processing BSP %s", file_name)
         with open(file_name, 'rb') as bsp_file:
             yield file_name[0:-len(".bsp")], process_entities(bsp_file)
     else:
@@ -122,9 +127,10 @@ def process_pk3_zip(
         name_list = []
     if info_list:
         name_list.extend([i.filename for i in info_list])
-    print("Maps:", ", ".join(name_list))
+    if log.isEnabledFor(logging.DEBUG):
+        log.debug("Maps: %s", ", ".join(name_list))
     for bsp_file_name in name_list:
-        print(f"Processing pk3 map: {bsp_file_name}")
+        log.info("Processing pk3 map: %s", bsp_file_name)
         with pk3_zip.open(bsp_file_name, 'r') as bsp_file:
             entities = process_entities(bsp_file)
         yield bsp_file_name[len("maps/"):-len(".bsp")], entities
@@ -234,7 +240,7 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
                 name = class_to_name.get(class_name, None)
                 count = len(elements)
                 if not name:
-                    print(f"WARN: Unknown class: {class_name}")
+                    log.warning("Unknown class: %s", class_name)
                     continue
                 print(name.ljust(class_name_pad, '.'), ": ×%d" % count)
 
@@ -269,24 +275,20 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
         print()
 
     for map_name, object_list in files_entities_list.items():
-        try:
-            aggregated_objects = aggregate_by_classname(object_list)
-            world_spawns = aggregated_objects.get("worldspawn", None)
-            if not world_spawns:
-                raise Exception(f"No worldspawn for {map_name}")
-            world_spawn = world_spawns.pop()
-            map_title = world_spawn.get("message", None)
-            if not map_title:
-                map_title = map_name
-                print(f"WARN: No message for worldspawn for {map_name}")
+        aggregated_objects = aggregate_by_classname(object_list)
+        world_spawns = aggregated_objects.get("worldspawn", None)
+        if not world_spawns:
+            raise Exception(f"No worldspawn for {map_name}")
+        world_spawn = world_spawns.pop()
+        map_title = world_spawn.get("message", None)
+        if not map_title:
+            map_title = map_name
+            log.warning("No message for worldspawn for %s", map_name)
 
-            ctf_capable = check_ctf_capable(aggregated_objects)
-            overload_capable = check_overload_capable(aggregated_objects)
-            harvester_capable = check_harvester_capable(aggregated_objects)
-            ctf_1f_capable = check_1f_ctf_capable(aggregated_objects)
-        except:
-            print(f"ERROR: unexpected error while generating text output for {map_name}, skipping")
-            continue
+        ctf_capable = check_ctf_capable(aggregated_objects)
+        overload_capable = check_overload_capable(aggregated_objects)
+        harvester_capable = check_harvester_capable(aggregated_objects)
+        ctf_1f_capable = check_1f_ctf_capable(aggregated_objects)
 
         print(map_title)
         print("=" * len(map_title))
@@ -334,6 +336,8 @@ if __name__ == '__main__':
     import argparse
     import sys
 
+    logging.basicConfig(level=logging.DEBUG)
+
     parser = argparse.ArgumentParser(description='BSP info tool')
     parser.add_argument('-j', dest='output', action='store_const', default=plain_text, const=json_formatted,
                         help='JSON output')
@@ -341,6 +345,6 @@ if __name__ == '__main__':
     parsed = parser.parse_args(sys.argv)
 
     if len(parsed.files) < 2:
-        print("WARN: no files specified")
+        log.warning("No files specified")
 
     parsed.output(map_dict(process(parsed.files[1:])))
