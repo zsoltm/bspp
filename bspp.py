@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
+import json
 import re
 import struct
-import json
+from typing import List, Dict, Callable, IO, Iterable, Tuple, Union, Optional
 from zipfile import ZipFile
-from typing import List, Dict, Callable, IO, Iterable, Tuple, Union
 
 pk3_file_exp = re.compile(r"\.pk3$", re.I)
 bsp_file_exp = re.compile(r"\.bsp$", re.I)
@@ -12,8 +12,10 @@ pk3_bsp_file = re.compile(r"^maps/[^.]+.bsp$", re.I)
 bsp_head = b"IBSP"
 bsp_version = b"\x2e\0\0\0"
 
+
 def is_pk3_bsp(pk3_zip_entry: str):
     return pk3_bsp_file.match(pk3_zip_entry)
+
 
 def get_lump(bsp_file: IO, index: int) -> bytes:
     bsp_data = bsp_file.read()
@@ -25,7 +27,8 @@ def get_lump(bsp_file: IO, index: int) -> bytes:
     if bytes(bsp_data_view[4:8]) != bsp_version:
         raise Exception("Invalid BSP version")
     dir_entry_ofs = 8 + index * 8
-    (offset, length) = struct.unpack('<2i', bytes(bsp_data_view[dir_entry_ofs:dir_entry_ofs + 8]))  # index 0 lump: entites
+    (offset, length) = struct.unpack(
+        '<2i', bytes(bsp_data_view[dir_entry_ofs:dir_entry_ofs + 8]))  # index 0 lump: entites
     print(f"Entities lump is at offset {offset} with size {length}")
     if length < 0 or offset < 0x90 or offset + length > bsp_size:
         raise Exception("Invalid direntry offsets")
@@ -36,9 +39,10 @@ obj_beg_exp = re.compile(r"\s*{\s*")
 obj_end_exp = re.compile(r"\s*}\s*")
 obj_string_exp = re.compile(r'\s*"([^"]*)"\s*')
 
+
 def parse_entity_obj(lines: Iterable[str]) -> List[Dict[str, str]]:
     in_obj = False
-    object: Dict[str, str]
+    entity_obj: Dict[str, str] = {}
     line_no = 0
     for line in lines:
         line_no += 1
@@ -46,16 +50,17 @@ def parse_entity_obj(lines: Iterable[str]) -> List[Dict[str, str]]:
             continue
         if not in_obj:
             if obj_beg_exp.match(line):
-                in_obj = True
-                object = {}
+                if not in_obj:
+                    in_obj = True
+                    entity_obj = {}
                 continue
             raise Exception(f"Expected object open curly at {line_no}")
         else:
             if obj_end_exp.match(line):
                 in_obj = False
-                if len(object) == 0 or not "classname" in object:
+                if len(entity_obj) == 0 or "classname" not in entity_obj:
                     print(f"WARN: empty object at line {line_no}")
-                yield object
+                yield entity_obj
                 continue
             m = obj_string_exp.match(line)
             if not m or m.start() > 0:
@@ -65,12 +70,14 @@ def parse_entity_obj(lines: Iterable[str]) -> List[Dict[str, str]]:
             if not m or m.end() < len(line):
                 raise Exception(f"Expected string literal value at {line_no}")
             value = m[1]
-            if key in object:
+            if key in entity_obj:
                 print(f"WARN: Duplicate key: {key} at {line_no}")
-            object[key] = value
+            entity_obj[key] = value
+
 
 def process_entities(bsp_file: IO):
     return list(parse_entity_obj(str(get_lump(bsp_file, 0), encoding='ascii').splitlines()))
+
 
 def process(files: List[str]) -> Iterable[Tuple[str, List[Dict[str, str]]]]:
     for file_name in files:
@@ -82,13 +89,14 @@ def process(files: List[str]) -> Iterable[Tuple[str, List[Dict[str, str]]]]:
                 for bsp_file_name in bsp_file_names:
                     print(f"Processing pk3 map: {bsp_file_name}")
                     with pk3.open(bsp_file_name, 'r') as bsp_file:
-                        yield (bsp_file_name[len("maps/"):-len(".bsp")], process_entities(bsp_file))
+                        yield bsp_file_name[len("maps/"):-len(".bsp")], process_entities(bsp_file)
         elif bsp_file_exp.search(file_name):
             print(f"Processing BSP {file_name}")
             with open(file_name, 'rb') as bsp_file:
-                yield (file_name[0:-len(".bsp")], process_entities(bsp_file))
+                yield file_name[0:-len(".bsp")], process_entities(bsp_file)
         else:
             raise Exception(f"Unknown file type: {file_name}")
+
 
 def map_dict(map_objects: Iterable[Tuple[str, List[Dict[str, str]]]]) -> Dict[str, List[Dict[str, str]]]:
     maps = {}
@@ -96,60 +104,71 @@ def map_dict(map_objects: Iterable[Tuple[str, List[Dict[str, str]]]]) -> Dict[st
         maps[map_name] = objects
     return maps
 
+
+_weapon_to_name = {
+    "weapon_rocketlauncher": "Rocket launcher",
+    "weapon_grenadelauncher": "Grenade launcher",
+    "weapon_lightning": "Lightning gun",
+    "weapon_plasmagun": "Plasma gun",
+    "weapon_shotgun": "Shotgun",
+    "weapon_railgun": "Railgun",
+    "weapon_bfg": "BFG",
+    "weapon_chaingun": "Chaingun",  # ta
+    "weapon_prox_launcher": "Proximity Launcher",  # ta
+    "weapon_nailgun": "Nailgun",  # ta
+}
+
+
+def weapon_to_name(weapon_id: str) -> Optional[str]:
+    return _weapon_to_name.get(weapon_id, None)
+
+
+_item_to_name = {
+    "item_armor_shard": "Armor shard",
+    "item_health_small": "Small health (green)",
+    "item_health": "Health (yellow)",
+    "item_health_large": "Large health (orange)",
+    "item_armor_body": "Body armor (yellow)",
+    "item_armor_combat": "Combat armor (red)",
+    "item_armor_jacket": "Armor jacket (green)",
+    "item_health_mega": "Megahealth",
+    "item_quad": "Quad damage",
+    "item_regen": "Regeneration",
+    "item_invis": "Invisibility",
+    "item_enviro": "Battle Suit",
+    "item_haste": "Haste",
+    "item_flight": "Flgiht",
+
+    # ammo:
+    "ammo_bullets": "Bullets",
+    "ammo_shells": "Shotgun shells",
+    "ammo_grenades": "Grenades",
+    "ammo_rockets": "Rockets",
+    "ammo_cells": "Plasma cells",
+    "ammo_lightning": "Lightning charge",
+    "ammo_slugs": "Slugs",
+    "ammo_belt": "Chaingun ammo",  # ta
+    "ammo_nails": "Nails",  # ta
+    "ammo_mines": "Proximity mines",  # ta
+    "ammo_bfg": "BFG Ammo",
+
+    "item_guard": "Guard",  # ta
+    "item_doubler": "Doubler",  # ta
+    "item_scout": "Scout",  # ta
+    "item_ammoregen": "Ammo regen",  # ta
+
+    "holdable_kamikaze": "Kamikaze",  # ta
+    "holdable_medkit": "Medkit",
+    "holdable_teleporter": "Teleporter",
+}
+
+
+def item_to_name(item_id: str) -> Optional[str]:
+    return _item_to_name.get(item_id, None)
+
+
 def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
-    weapon_to_name = {
-        "weapon_rocketlauncher": "Rocket launcher",
-        "weapon_grenadelauncher": "Grenade launcher",
-        "weapon_lightning": "Lightning gun",
-        "weapon_plasmagun": "Plasma gun",
-        "weapon_shotgun": "Shotgun",
-        "weapon_railgun": "Railgun",
-        "weapon_bfg": "BFG",
-        "weapon_chaingun": "Chaingun",  # ta
-        "weapon_prox_launcher": "Proximity Launcher",  # ta
-        "weapon_nailgun": "Nailgun",  # ta
-    }
-
     items_filtered = {'item_botroam'}
-
-    item_to_name = {
-        "item_armor_shard": "Armor shard",
-        "item_health_small": "Small health (green)",
-        "item_health": "Health (yellow)",
-        "item_health_large": "Large health (orange)",
-        "item_armor_body": "Body armor (yellow)",
-        "item_armor_combat": "Combat armor (red)",
-        "item_armor_jacket": "Armor jacket (green)",
-        "item_health_mega": "Megahealth",
-        "item_quad": "Quad damage",
-        "item_regen": "Regeneration",
-        "item_invis": "Invisibility",
-        "item_enviro": "Battle Suit",
-        "item_haste": "Haste",
-        "item_flight": "Flgiht",
-
-        # ammo:
-        "ammo_bullets": "Bullets",
-        "ammo_shells": "Shotgun shells",
-        "ammo_grenades": "Grenades",
-        "ammo_rockets": "Rockets",
-        "ammo_cells": "Plasma cells",
-        "ammo_lightning": "Lightning charge",
-        "ammo_slugs": "Slugs",
-        "ammo_belt": "Chaingun ammo", # ta
-        "ammo_nails": "Nails",  # ta
-        "ammo_mines": "Proximity mines",  # ta
-        "ammo_bfg": "BFG Ammo",
-
-        "item_guard": "Guard",  # ta
-        "item_doubler": "Doubler",  # ta
-        "item_scout": "Scout",  # ta
-        "item_ammoregen": "Ammo regen",  # ta
-
-        "holdable_kamikaze": "Kamikaze",  # ta
-        "holdable_medkit": "Medkit",
-        "holdable_teleporter": "Teleporter",
-    }
 
     flag_to_name = {
         "ctf_capable": "CTF capable",
@@ -159,23 +178,24 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
         "harvester_capable": "Harvester capable",
     }
 
-    def longest_value(*dicts: Iterable[Dict[any, str]]) -> int:
+    def longest_value(*dicts: Dict[any, str]) -> int:
         max_v_len = 0
         for d in dicts:
             for v in d.values():
                 max_v_len = max(max_v_len, len(v))
         return max_v_len
 
-    class_name_pad = longest_value(weapon_to_name, item_to_name, flag_to_name)
+    class_name_pad = longest_value(_weapon_to_name, _item_to_name, flag_to_name)
 
     def aggregate_by_classname(objects: List[Dict[str, str]]) -> Dict[str, List[Dict[str, str]]]:
         by_classname = {}
-        for object in objects:
-            classname = object["classname"]
-            by_classname.setdefault(classname, []).append(object)
+        for obj in objects:
+            classname = obj["classname"]
+            by_classname.setdefault(classname, []).append(obj)
         return by_classname
 
-    def print_class_counts(class_to_name: Dict[str, str], filter_spec: Union[str, Callable[[str], bool]], pad: int, objects: Dict[str, List[any]]) -> None:
+    def print_class_counts(class_to_name: Dict[str, str], filter_spec: Union[str, Callable[[str], bool]],
+                           objects: Dict[str, List[any]]) -> None:
         filter_l = (lambda n: n.startswith(filter_spec)) if type(filter_spec) == str else filter_spec
         for class_name, elements in objects.items():
             if filter_l(class_name):
@@ -208,16 +228,17 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
         return any([x in haystack_keyset for x in key_list])
 
     def item_filter(item):
-        return item.startswith("ammo_") or  item.startswith("holdable_") or (item.startswith("item_") and not item in items_filtered)
+        return item.startswith("ammo_") or item.startswith("holdable_") or (
+                    item.startswith("item_") and item not in items_filtered)
 
-    for map_name, objects in files_entities_list.items():
+    for map_name, object_list in files_entities_list.items():
         try:
-            aggregated_objects = aggregate_by_classname(objects)
-            worldspawns = aggregated_objects.get("worldspawn", None)
-            if not worldspawns:
+            aggregated_objects = aggregate_by_classname(object_list)
+            world_spawns = aggregated_objects.get("worldspawn", None)
+            if not world_spawns:
                 raise Exception(f"No worldspawn for {map_name}")
-            worldspawn = worldspawns.pop()
-            map_title = worldspawn.get("message", None)
+            world_spawn = world_spawns.pop()
+            map_title = world_spawn.get("message", None)
             if not map_title:
                 map_title = map_name
                 print(f"WARN: No message for worldspawn for {map_name}")
@@ -238,12 +259,12 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
         print("Items")
         print("-----")
         print()
-        print_class_counts(item_to_name, item_filter, class_name_pad, aggregated_objects)
+        print_class_counts(_item_to_name, item_filter, aggregated_objects)
         print()
         print("Weapons")
         print("-------")
         print()
-        print_class_counts(weapon_to_name, "weapon_", class_name_pad, aggregated_objects)
+        print_class_counts(_weapon_to_name, "weapon_", aggregated_objects)
         print()
 
         requires_ta = overload_capable or harvester_capable or ctf_1f_capable or has_any_key(aggregated_objects, [
@@ -277,14 +298,17 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
 def json_formatted(files_entities_list: Dict[str, List[Dict[str, str]]]):
     print(json.dumps(files_entities_list, indent=True))
 
-if __name__ == '__main__':
-    import argparse, sys
 
-    parser = argparse.ArgumentParser(description='BSP Infoo Tool')
-    parser.add_argument('-j', dest='output', action='store_const', default=plain_text, const=json_formatted, help='JSON output')
+if __name__ == '__main__':
+    import argparse
+    import sys
+
+    parser = argparse.ArgumentParser(description='BSP info tool')
+    parser.add_argument('-j', dest='output', action='store_const', default=plain_text, const=json_formatted,
+                        help='JSON output')
     parser.add_argument('files', metavar='F', nargs='+', help="a .bsp or pk3 file to be processed")
     parsed = parser.parse_args(sys.argv)
-    
+
     if len(parsed.files) < 2:
         print("WARN: no files specified")
 
