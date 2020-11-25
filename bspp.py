@@ -40,7 +40,7 @@ def get_lump(bsp_file: IO, index: int) -> bytes:
         '<2i', bytes(bsp_data_view[dir_entry_ofs:dir_entry_ofs + 8]))  # index 0 lump: entities
     log.debug(f"Entities lump is at offset {offset} with size {length}")
     if length < 0 or offset < 0x90 or offset + length > bsp_size:
-        raise Exception("Invalid direntry offsets")
+        raise Exception("Invalid dir entry offsets")
     return bytes(bsp_data_view[offset:offset + length - 1])
 
 
@@ -205,6 +205,25 @@ def item_to_name(item_id: str) -> Optional[str]:
     return _item_to_name.get(item_id, None)
 
 
+def filter_aggregated(filter_spec: Union[str, Callable[[str], bool]], objects: Dict[str, List[any]]) \
+        -> Dict[str, int]:
+    filter_l = (lambda n: n.startswith(filter_spec)) if type(filter_spec) == str else filter_spec
+    return {key: len(value) for (key, value) in objects.items() if filter_l(key)}
+
+
+def translate_names(class_to_name: Dict[str, str], objects: Dict[str, int]) -> Iterable[Tuple[str, int]]:
+    for class_name, count in objects.items():
+        name = class_to_name.get(class_name, None)
+        if not name:
+            log.warning("Unknown class: %s", class_name)
+            continue
+        yield name, count
+
+
+def post_process_entities():
+    pass
+
+
 def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
     items_filtered = {'item_botroam'}
 
@@ -223,8 +242,6 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
                 max_v_len = max(max_v_len, len(v))
         return max_v_len
 
-    class_name_pad = longest_value(_weapon_to_name, _item_to_name, flag_to_name)
-
     def aggregate_by_classname(objects: List[Dict[str, str]]) -> Dict[str, List[Dict[str, str]]]:
         by_classname = {}
         for obj in objects:
@@ -232,17 +249,9 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
             by_classname.setdefault(classname, []).append(obj)
         return by_classname
 
-    def print_class_counts(class_to_name: Dict[str, str], filter_spec: Union[str, Callable[[str], bool]],
-                           objects: Dict[str, List[any]]) -> None:
-        filter_l = (lambda n: n.startswith(filter_spec)) if type(filter_spec) == str else filter_spec
-        for class_name, elements in objects.items():
-            if filter_l(class_name):
-                name = class_to_name.get(class_name, None)
-                count = len(elements)
-                if not name:
-                    log.warning("Unknown class: %s", class_name)
-                    continue
-                print(name.ljust(class_name_pad, '.'), ": ×%d" % count)
+    def print_class_counts(justification: int, entries: Iterable[Tuple[str, int]]) -> None:
+        for name, count in entries:
+            print(name.ljust(justification, '.'), ": ×%d" % count)
 
     def print_flag(flag: bool, dict_key: str) -> None:
         if flag:
@@ -266,13 +275,16 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
         return any([x in haystack_keyset for x in key_list])
 
     def item_filter(item):
-        return item.startswith("ammo_") or item.startswith("holdable_") or (
-                    item.startswith("item_") and item not in items_filtered)
+        return item.startswith("ammo_") \
+               or item.startswith("holdable_") \
+               or (item.startswith("item_") and item not in items_filtered)
 
     def section_title(title: str):
         print(title)
         print("-" * len(title))
         print()
+
+    class_name_pad = longest_value(_weapon_to_name, _item_to_name, flag_to_name)
 
     for map_name, object_list in files_entities_list.items():
         aggregated_objects = aggregate_by_classname(object_list)
@@ -285,23 +297,15 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
             map_title = map_name
             log.warning("No message for worldspawn for %s", map_name)
 
+        aggregated_items = filter_aggregated(item_filter, aggregated_objects)
+        aggregated_weapons = filter_aggregated("weapon_", aggregated_objects)
+
+        # -- flags
+
         ctf_capable = check_ctf_capable(aggregated_objects)
         overload_capable = check_overload_capable(aggregated_objects)
         harvester_capable = check_harvester_capable(aggregated_objects)
         ctf_1f_capable = check_1f_ctf_capable(aggregated_objects)
-
-        print(map_title)
-        print("=" * len(map_title))
-        print()
-        print("Map name:", map_name)
-        print()
-        section_title("Items")
-        print_class_counts(_item_to_name, item_filter, aggregated_objects)
-        print()
-        section_title("Weapons")
-        print_class_counts(_weapon_to_name, "weapon_", aggregated_objects)
-        print()
-
         requires_ta = overload_capable or harvester_capable or ctf_1f_capable or has_any_key(aggregated_objects, [
             "item_guard",
             "item_doubler",
@@ -315,6 +319,20 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
             "ammo_nails",
             "holdable_kamikaze",
         ])
+
+        print(map_title)
+        print("=" * len(map_title))
+        print()
+        print("Map name:", map_name)
+        print()
+
+        section_title("Items")
+        print_class_counts(class_name_pad, translate_names(_item_to_name, aggregated_items))
+        print()
+
+        section_title("Weapons")
+        print_class_counts(class_name_pad, translate_names(_weapon_to_name, aggregated_weapons))
+        print()
 
         if ctf_capable or overload_capable or harvester_capable or ctf_1f_capable or requires_ta:
             section_title("Properties")
@@ -336,7 +354,7 @@ if __name__ == '__main__':
     import argparse
     import sys
 
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
 
     parser = argparse.ArgumentParser(description='BSP info tool')
     parser.add_argument('-j', dest='output', action='store_const', default=plain_text, const=json_formatted,
