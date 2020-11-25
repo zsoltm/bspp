@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 
 import json
+import logging
 import os
 import re
 import struct
-import logging
-from typing import List, Dict, Callable, IO, Iterable, Tuple, Union, Optional
+from typing import List, Dict, IO, Iterable, Tuple, Optional
 from zipfile import ZipFile, ZipInfo
 
+from bspp.postprocess import pp
 
 log = logging.getLogger(__name__)
 
@@ -205,12 +206,6 @@ def item_to_name(item_id: str) -> Optional[str]:
     return _item_to_name.get(item_id, None)
 
 
-def filter_aggregated(filter_spec: Union[str, Callable[[str], bool]], objects: Dict[str, List[any]]) \
-        -> Dict[str, int]:
-    filter_l = (lambda n: n.startswith(filter_spec)) if type(filter_spec) == str else filter_spec
-    return {key: len(value) for (key, value) in objects.items() if filter_l(key)}
-
-
 def translate_names(class_to_name: Dict[str, str], objects: Dict[str, int]) -> Iterable[Tuple[str, int]]:
     for class_name, count in objects.items():
         name = class_to_name.get(class_name, None)
@@ -224,9 +219,7 @@ def post_process_entities():
     pass
 
 
-def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
-    items_filtered = {'item_botroam'}
-
+def plain_text(entities_by_map: Dict[str, List[Dict[str, str]]]):
     flag_to_name = {
         "ctf_capable": "CTF capable",
         "requires_ta": "Requires team arena",
@@ -242,13 +235,6 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
                 max_v_len = max(max_v_len, len(v))
         return max_v_len
 
-    def aggregate_by_classname(objects: List[Dict[str, str]]) -> Dict[str, List[Dict[str, str]]]:
-        by_classname = {}
-        for obj in objects:
-            classname = obj["classname"]
-            by_classname.setdefault(classname, []).append(obj)
-        return by_classname
-
     def print_class_counts(justification: int, entries: Iterable[Tuple[str, int]]) -> None:
         for name, count in entries:
             print(name.ljust(justification, '.'), ": ×%d" % count)
@@ -258,27 +244,6 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
             name = flag_to_name.get(dict_key)
             print(name.ljust(class_name_pad, '.'), ": Yes")
 
-    def check_ctf_capable(objects: Dict[str, any]) -> bool:
-        return "team_CTF_blueflag" in objects and "team_CTF_blueflag" in objects
-
-    def check_1f_ctf_capable(objects: Dict[str, any]) -> bool:
-        return "team_CTF_neutralflag" in objects
-
-    def check_overload_capable(objects: Dict[str, any]) -> bool:
-        return "team_redobelisk" in objects and "team_blueobelisk" in objects
-
-    def check_harvester_capable(objects: Dict[str, any]) -> bool:
-        return "team_neutralobelisk" in objects
-
-    def has_any_key(objects: Dict[str, any], key_list: Iterable[str]) -> bool:
-        haystack_keyset = set(objects.keys())
-        return any([x in haystack_keyset for x in key_list])
-
-    def item_filter(item):
-        return item.startswith("ammo_") \
-               or item.startswith("holdable_") \
-               or (item.startswith("item_") and item not in items_filtered)
-
     def section_title(title: str):
         print(title)
         print("-" * len(title))
@@ -286,64 +251,31 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
 
     class_name_pad = longest_value(_weapon_to_name, _item_to_name, flag_to_name)
 
-    for map_name, object_list in files_entities_list.items():
-        aggregated_objects = aggregate_by_classname(object_list)
-        world_spawns = aggregated_objects.get("worldspawn", None)
-        if not world_spawns:
-            raise Exception(f"No worldspawn for {map_name}")
-        world_spawn = world_spawns.pop()
-        map_title = world_spawn.get("message", None)
-        if not map_title:
-            map_title = map_name
-            log.warning("No message for worldspawn for %s", map_name)
-
-        aggregated_items = filter_aggregated(item_filter, aggregated_objects)
-        aggregated_weapons = filter_aggregated("weapon_", aggregated_objects)
-
-        # -- flags
-
-        ctf_capable = check_ctf_capable(aggregated_objects)
-        overload_capable = check_overload_capable(aggregated_objects)
-        harvester_capable = check_harvester_capable(aggregated_objects)
-        ctf_1f_capable = check_1f_ctf_capable(aggregated_objects)
-        requires_ta = overload_capable or harvester_capable or ctf_1f_capable or has_any_key(aggregated_objects, [
-            "item_guard",
-            "item_doubler",
-            "item_scout",
-            "item_ammoregen",
-            "weapon_chaingun",
-            "weapon_prox_launcher",
-            "weapon_nailgun",
-            "ammo_belt",
-            "ammo_mines",
-            "ammo_nails",
-            "holdable_kamikaze",
-        ])
-
-        print(map_title)
-        print("=" * len(map_title))
+    for ppp in pp(entities_by_map):
+        print(ppp.map_title)
+        print("=" * len(ppp.map_title))
         print()
-        print("Map name:", map_name)
+        print("Map name:", ppp.map_name)
         print()
 
         section_title("Items")
-        print_class_counts(class_name_pad, translate_names(_item_to_name, aggregated_items))
+        print_class_counts(class_name_pad, translate_names(_item_to_name, ppp.aggregated_items))
         print()
 
         section_title("Weapons")
-        print_class_counts(class_name_pad, translate_names(_weapon_to_name, aggregated_weapons))
+        print_class_counts(class_name_pad, translate_names(_weapon_to_name, ppp.aggregated_weapons))
         print()
 
-        if ctf_capable or overload_capable or harvester_capable or ctf_1f_capable or requires_ta:
-            section_title("Properties")
-            print_flag(requires_ta, "requires_ta")
-            print_flag(ctf_capable, "ctf_capable")
-            print_flag(ctf_1f_capable, "ctf_1f_capable")
-            print_flag(overload_capable, "overload_capable")
-            print_flag(harvester_capable, "harvester_capable")
-            print()
+        f = ppp.flags
 
-        # print(aggregated_objects.keys())
+        if f.ctf_capable or f.overload_capable or f.harvester_capable or f.ctf_1f_capable or f.requires_ta:
+            section_title("Properties")
+            print_flag(f.requires_ta, "requires_ta")
+            print_flag(f.ctf_capable, "ctf_capable")
+            print_flag(f.ctf_1f_capable, "ctf_1f_capable")
+            print_flag(f.overload_capable, "overload_capable")
+            print_flag(f.harvester_capable, "harvester_capable")
+            print()
 
 
 def json_formatted(files_entities_list: Dict[str, List[Dict[str, str]]]):
