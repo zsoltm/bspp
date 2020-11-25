@@ -169,7 +169,7 @@ _item_to_name = {
     "item_invis": "Invisibility",
     "item_enviro": "Battle Suit",
     "item_haste": "Haste",
-    "item_flight": "Flgiht",
+    "item_flight": "Flight",
 
     # ammo:
     "ammo_bullets": "Bullets",
@@ -291,7 +291,7 @@ def plain_text(files_entities_list: Dict[str, List[Dict[str, str]]]):
         print(map_title)
         print("=" * len(map_title))
         print()
-        print("Map name...:", map_name)
+        print("Map name:", map_name)
         print()
         section_title("Items")
         print_class_counts(_item_to_name, item_filter, aggregated_objects)
