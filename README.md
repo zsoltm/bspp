@@ -277,4 +277,4 @@ Understanding pylint [errors][pylint-errors].
 Test-maps
 ---------
 
-Test maps: SpineBender by Elfinko; mosh by tetsuo. Thank you!
+Test maps: SpineBender by Elfinko; mosh by tetsuo; vrmpack by vamp1re. Thank you all!
