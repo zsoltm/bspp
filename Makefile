@@ -6,8 +6,11 @@ lint:
 	pylint --rcfile .pylint bspp/*.py
 	mypy bspp/*.py
 
-release: lint test
-	flit publish
+clean:
+	rm -Rf dist
+
+release: clean lint test
+	flit --repository testpypi publish
 
 test:
 	python -m unittest -v tests
