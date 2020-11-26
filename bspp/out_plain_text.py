@@ -1,4 +1,5 @@
 import logging
+import struct
 from typing import Union, Iterable, Tuple, Dict, Optional
 
 from bspp.model import PK3Entity, MapEntities, Map
@@ -132,7 +133,8 @@ def plain_text(entity_containers: Iterable[Union[MapEntities, PK3Entity]]) -> No
 
     def print_pk3_entity(e: PK3Entity):
         section_title(e.pk3_name)
-        # print(f"{indent}CRC: {ppp.map_name}")
+        print("CRC: ", e.crc.hex(), f"(sv_currentPak: {struct.unpack('<I', e.crc)[0]})")
+        print()
         for map_entity in e.map_entities:
             print_map_entity(pp_map(map_entity), "  ")
 

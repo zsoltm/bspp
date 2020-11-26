@@ -12,6 +12,7 @@ class MapEntities:
 @dataclass
 class PK3Entity:
     pk3_name: str
+    crc: bytes
     map_entities: List[MapEntities]
 
 
@@ -58,7 +59,7 @@ class PK3:
     def to_json(self):
         return dict(
             pk3_name=self.pk3_name,
-            # TODO: add crc
+            crc=self.crc.hex(),
             maps=[m.to_json() for m in self.maps])
 
 

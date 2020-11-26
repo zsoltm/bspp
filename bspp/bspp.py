@@ -9,6 +9,7 @@ from typing import List, Dict, IO, Iterable, Union
 from zipfile import ZipFile
 
 from bspp.model import MapEntities, PK3Entity, PK3
+from bspp.pk3hash import pk3_hash_info
 from bspp.postprocess import pp_map
 
 log = logging.getLogger(__name__)
@@ -126,7 +127,8 @@ def process_pk3_zip(pk3_zip: ZipFile) -> PK3Entity:
     bsp_name_list = filter(is_pk3_bsp, zip_name_list)
     if log.isEnabledFor(logging.DEBUG):
         log.debug("Maps: %s", ", ".join(bsp_name_list))
-    return PK3Entity(pk3_zip.filename, list(_process_pk3_zip_maps(pk3_zip, bsp_name_list)))
+    return PK3Entity(
+        pk3_zip.filename, pk3_hash_info(zip_info_list), list(_process_pk3_zip_maps(pk3_zip, bsp_name_list)))
 
 
 def _process_pk3_zip_maps(pk3_zip: ZipFile, bsp_name_list: Iterable[str]) -> Iterable[MapEntities]:
@@ -140,7 +142,7 @@ def _process_pk3_zip_maps(pk3_zip: ZipFile, bsp_name_list: Iterable[str]) -> Ite
 def json_formatted(entity_containers: Iterable[Union[MapEntities, PK3Entity]]):
     from bspp.model import JSONEncodingAwareClassEncoder
     processed = [pp_map(x) if type(x) is MapEntities
-                 else PK3(x.pk3_name, b"", [pp_map(me) for me in x.map_entities]) for x in entity_containers]
+                 else PK3(x.pk3_name, x.crc, [pp_map(me) for me in x.map_entities]) for x in entity_containers]
     print(json.dumps(processed, indent=True, cls=JSONEncodingAwareClassEncoder))
 
 
