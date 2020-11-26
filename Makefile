@@ -8,3 +8,6 @@ lint:
 
 release: lint test
 	flit publish
+
+test:
+	python -m unittest -v tests

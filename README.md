@@ -273,3 +273,8 @@ Understanding pylint [errors][pylint-errors].
 
 [pylint-errors]: https://pylint.readthedocs.io/en/latest/technical_reference/features.html
 [pipenv]: https://pipenv.pypa.io/
+
+Test-maps
+---------
+
+Test maps: SpineBender by Elfinko; mosh by tetsuo. Thank you!
