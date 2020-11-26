@@ -251,3 +251,25 @@ aggregated_items={'item_health_large': 4, 'item_quad': 1, 'item_armor_body': 1, 
 flags=Flags(ctf_capable=True, overload_capable=False, harvester_capable=False, ctf_1f_capable=False, 
 equires_ta=False))]
 ```
+
+Development
+-----------
+
+This project prefers [Pipenv][pipenv].
+
+In order to install development dependencies prepare dev env with:
+
+```bash
+$ pipenv sync -d
+```
+
+Before pushing, please check code quality and formatting:
+
+```bash
+$ make lint
+```
+
+Understanding pylint [errors][pylint-errors].
+
+[pylint-errors]: https://pylint.readthedocs.io/en/latest/technical_reference/features.html
+[pipenv]: https://pipenv.pypa.io/
