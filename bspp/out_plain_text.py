@@ -138,7 +138,7 @@ def plain_text(entity_containers: Iterable[Union[MapEntities, PK3Entity]]) -> No
             print_map_entity(pp_map(map_entity), "  ")
 
     for entity_container in entity_containers:
-        if type(entity_container) is MapEntities:
+        if isinstance(entity_container, MapEntities):
             print_map_entity(pp_map(entity_container))
         else:
             print_pk3_entity(entity_container)

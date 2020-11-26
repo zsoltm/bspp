@@ -16,7 +16,7 @@ def aggregate_by_classname(objects: List[Dict[str, str]]) -> Dict[str, List[Dict
 
 
 def filter_aggregated(filter_spec: Union[str, Callable[[str], bool]], objects: Dict[str, List[any]]) -> Dict[str, int]:
-    filter_l = (lambda n: n.startswith(filter_spec)) if type(filter_spec) == str else filter_spec
+    filter_l = (lambda n: n.startswith(filter_spec)) if isinstance(filter_spec, str) else filter_spec
     return {key: len(value) for (key, value) in objects.items() if filter_l(key)}
 
 

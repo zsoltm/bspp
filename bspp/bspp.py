@@ -9,7 +9,7 @@ from typing import List, Dict, Iterable, Union
 from zipfile import ZipFile
 
 from bspp.hash import pk3_hash_info, bsp_hash
-from bspp.model import MapEntities, PK3Entity, PK3
+from bspp.model import MapEntities, PK3Entity, PK3, JSONEncodingAwareClassEncoder
 from bspp.postprocess import pp_map
 
 log = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ def is_pk3(dir_file: str) -> bool:
 def get_lump(bsp_bytes: bytes, index: int) -> bytes:
     bsp_data_view = memoryview(bsp_bytes)
     bsp_size = len(bsp_bytes)
-    log.debug(f"BSP size: {bsp_size}")
+    log.debug("BSP size: %d", bsp_size)
     if bytes(bsp_data_view[0:4]) != bsp_head:
         raise Exception("Invalid BSP header")
     if bytes(bsp_data_view[4:8]) != bsp_version:
@@ -43,7 +43,7 @@ def get_lump(bsp_bytes: bytes, index: int) -> bytes:
     (offset, length) = struct.unpack(
         "<2i", bytes(bsp_data_view[dir_entry_ofs : dir_entry_ofs + 8])
     )  # index 0 lump: entities
-    log.debug(f"Entities lump is at offset {offset} with size {length}")
+    log.debug("Entities lump is at offset %d with size %d", offset, length)
     if length < 0 or offset < 0x90 or offset + length > bsp_size:
         raise Exception("Invalid dir entry offsets")
     return bytes(bsp_data_view[offset : offset + length - 1])
@@ -64,25 +64,25 @@ def parse_entity_obj(lines: Iterable[str]) -> Iterable[Dict[str, str]]:
                     entity_obj = {}
                 continue
             raise Exception(f"Expected object open curly at {line_no}")
-        else:
-            if obj_end_exp.match(line):
-                in_obj = False
-                if len(entity_obj) == 0 or "classname" not in entity_obj:
-                    log.warning("Empty object at line %d", line_no)
-                    continue
-                yield entity_obj
+
+        if obj_end_exp.match(line):
+            in_obj = False
+            if len(entity_obj) == 0 or "classname" not in entity_obj:
+                log.warning("Empty object at line %d", line_no)
                 continue
-            m = obj_string_exp.match(line)
-            if not m or m.start() > 0:
-                raise Exception(f"Expected string literal key at {line_no}")
-            key = m[1]
-            m = obj_string_exp.match(line, m.end())
-            if not m or m.end() < len(line):
-                raise Exception(f"Expected string literal value at {line_no}")
-            value = m[1]
-            if key in entity_obj:
-                log.warning("Duplicate key: %s at %d", key, line_no)
-            entity_obj[key] = value
+            yield entity_obj
+            continue
+        m = obj_string_exp.match(line)
+        if not m or m.start() > 0:
+            raise Exception(f"Expected string literal key at {line_no}")
+        key = m[1]
+        m = obj_string_exp.match(line, m.end())
+        if not m or m.end() < len(line):
+            raise Exception(f"Expected string literal value at {line_no}")
+        value = m[1]
+        if key in entity_obj:
+            log.warning("Duplicate key: %s at %d", key, line_no)
+        entity_obj[key] = value
 
 
 def process_entities(bsp_data: bytes) -> List[Dict[str, str]]:
@@ -92,8 +92,8 @@ def process_entities(bsp_data: bytes) -> List[Dict[str, str]]:
 def process(files: Iterable[str]) -> Iterable[Union[PK3Entity, MapEntities]]:
     for file_name in files:
         if os.path.isdir(file_name):
-            for root, dirs, files in os.walk(file_name):
-                pk3_files = [dir_file for dir_file in files if is_pk3(dir_file)]
+            for root, _, w_files in os.walk(file_name):
+                pk3_files = [dir_file for dir_file in w_files if is_pk3(dir_file)]
                 for pk3_file in pk3_files:
                     yield process_file(os.path.join(root, pk3_file))
         else:
@@ -143,10 +143,8 @@ def _process_pk3_zip_maps(pk3_zip: ZipFile, bsp_name_list: Iterable[str]) -> Ite
 
 
 def json_formatted(entity_containers: Iterable[Union[MapEntities, PK3Entity]]):
-    from bspp.model import JSONEncodingAwareClassEncoder
-
     processed = [
-        pp_map(x) if type(x) is MapEntities else PK3(x.pk3_name, x.crc, [pp_map(me) for me in x.map_entities])
+        pp_map(x) if isinstance(x, MapEntities) else PK3(x.pk3_name, x.crc, [pp_map(me) for me in x.map_entities])
         for x in entity_containers
     ]
     print(json.dumps(processed, indent=True, cls=JSONEncodingAwareClassEncoder))
