@@ -12,12 +12,14 @@ from bspp.model import MapEntities, PK3Entity, Map, PK3
 from bspp.postprocess import pp_map
 
 log = logging.getLogger(__name__)
-
 pk3_file_exp = re.compile(r".+\.pk3$", re.I)
 bsp_file_exp = re.compile(r".+\.bsp$", re.I)
 pk3_bsp_file = re.compile(r"^maps/[^.]+.bsp$", re.I)
 bsp_head = b"IBSP"
 bsp_version = b"\x2e\0\0\0"
+obj_beg_exp = re.compile(r"\s*{\s*")
+obj_end_exp = re.compile(r"\s*}\s*")
+obj_string_exp = re.compile(r'\s*"([^"]*)"\s*')
 
 
 def is_pk3_bsp(pk3_zip_entry: str):
@@ -44,11 +46,6 @@ def get_lump(bsp_file: IO, index: int) -> bytes:
     if length < 0 or offset < 0x90 or offset + length > bsp_size:
         raise Exception("Invalid dir entry offsets")
     return bytes(bsp_data_view[offset:offset + length - 1])
-
-
-obj_beg_exp = re.compile(r"\s*{\s*")
-obj_end_exp = re.compile(r"\s*}\s*")
-obj_string_exp = re.compile(r'\s*"([^"]*)"\s*')
 
 
 def parse_entity_obj(lines: Iterable[str]) -> Iterable[Dict[str, str]]:
