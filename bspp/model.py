@@ -1,6 +1,18 @@
 from dataclasses import dataclass
 from json import JSONEncoder
-from typing import Dict, Any
+from typing import Dict, Any, List
+
+
+@dataclass
+class MapEntities:
+    map_name: str
+    entities: List[Dict[str, str]]
+
+
+@dataclass
+class PK3Entity:
+    pk3_name: str
+    map_entities: List[MapEntities]
 
 
 @dataclass
@@ -35,6 +47,19 @@ class Map:
             aggregated_items=self.aggregated_items,
             aggregated_weapons=self.aggregated_weapons,
             flags=self.flags.to_json())
+
+
+@dataclass
+class PK3:
+    pk3_name: str
+    crc: bytes
+    maps: List[Map]
+
+    def to_json(self):
+        return dict(
+            pk3_name=self.pk3_name,
+            # TODO: add crc
+            maps=[m.to_json() for m in self.maps])
 
 
 class JSONEncodingAwareClassEncoder(JSONEncoder):

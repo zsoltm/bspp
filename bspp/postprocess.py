@@ -1,7 +1,7 @@
 import logging
 from typing import Dict, List, Iterable, Union, Callable
 
-from .model import Map, Flags
+from .model import Map, Flags, MapEntities
 
 log = logging.getLogger(__name__)
 items_filtered = {'item_botroam'}
@@ -48,16 +48,16 @@ def item_filter(item):
            or (item.startswith("item_") and item not in items_filtered)
 
 
-def pp_map(map_name: str, entity_list: List[Dict[str, str]]) -> Map:
-    aggregated_objects = aggregate_by_classname(entity_list)
+def pp_map(m: MapEntities) -> Map:
+    aggregated_objects = aggregate_by_classname(m.entities)
     world_spawns = aggregated_objects.get("worldspawn", None)
     if not world_spawns:
-        raise Exception(f"No worldspawn for {map_name}")
+        raise Exception(f"No worldspawn for {m.map_name}")
     world_spawn = world_spawns.pop()
     map_title = world_spawn.get("message", None)
     if not map_title:
-        map_title = map_name
-        log.warning("No message for worldspawn for %s", map_name)
+        map_title = m.map_name
+        log.warning("No message for worldspawn for %s", m.map_name)
 
     ctf_capable = check_ctf_capable(aggregated_objects)
     overload_capable = check_overload_capable(aggregated_objects)
@@ -79,7 +79,7 @@ def pp_map(map_name: str, entity_list: List[Dict[str, str]]) -> Map:
 
     return Map(
         map_title,
-        map_name,
+        m.map_name,
         filter_aggregated(item_filter, aggregated_objects),
         filter_aggregated("weapon_", aggregated_objects),
         Flags(
@@ -88,8 +88,3 @@ def pp_map(map_name: str, entity_list: List[Dict[str, str]]) -> Map:
             harvester_capable,
             ctf_1f_capable,
             requires_ta))
-
-
-def pp(entities_by_map: Dict[str, List[Dict[str, str]]]) -> Iterable[Map]:
-    for map_name, entity_list in entities_by_map.items():
-        yield pp_map(map_name, entity_list)
