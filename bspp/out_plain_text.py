@@ -110,6 +110,7 @@ def plain_text(entity_containers: Iterable[Union[MapEntities, PK3Entity]]) -> No
     def print_map_entity(map_data: Map, indent: str = ""):
         section_title(map_data.map_name, indent, "=")
         print(f"{indent}Map name: {map_data.map_title}")
+        print(f"{indent}CRC:", map_data.crc.hex(), f"(sv_mapChecksum {struct.unpack('>i', map_data.crc)[0]})")
         print()
 
         section_title("Items", indent)
@@ -133,7 +134,7 @@ def plain_text(entity_containers: Iterable[Union[MapEntities, PK3Entity]]) -> No
 
     def print_pk3_entity(e: PK3Entity):
         section_title(e.pk3_name)
-        print("CRC: ", e.crc.hex(), f"(sv_currentPak: {struct.unpack('<I', e.crc)[0]})")
+        print("CRC: ", e.crc.hex(), f"(sv_currentPak: {struct.unpack('>i', e.crc)[0]})")
         print()
         for map_entity in e.map_entities:
             print_map_entity(pp_map(map_entity), "  ")

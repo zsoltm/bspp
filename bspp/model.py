@@ -6,6 +6,7 @@ from typing import Dict, Any, List
 @dataclass
 class MapEntities:
     map_name: str
+    crc: bytes
     entities: List[Dict[str, str]]
 
 
@@ -37,6 +38,7 @@ class Flags:
 class Map:
     map_title: str
     map_name: str
+    crc: bytes
     aggregated_items: Dict[str, int]
     aggregated_weapons: Dict[str, int]
     flags: Flags
@@ -45,6 +47,7 @@ class Map:
         return dict(
             map_title=self.map_title,
             map_name=self.map_name,
+            crc=self.crc.hex(),
             aggregated_items=self.aggregated_items,
             aggregated_weapons=self.aggregated_weapons,
             flags=self.flags.to_json())

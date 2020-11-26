@@ -5,11 +5,11 @@ import logging
 import os
 import re
 import struct
-from typing import List, Dict, IO, Iterable, Union
+from typing import List, Dict, Iterable, Union
 from zipfile import ZipFile
 
+from bspp.hash import pk3_hash_info, bsp_hash
 from bspp.model import MapEntities, PK3Entity, PK3
-from bspp.pk3hash import pk3_hash_info
 from bspp.postprocess import pp_map
 
 log = logging.getLogger(__name__)
@@ -31,10 +31,9 @@ def is_pk3(dir_file: str) -> bool:
     return len(dir_file) > 4 and dir_file[-4:].lower() == ".pk3"
 
 
-def get_lump(bsp_file: IO, index: int) -> bytes:
-    bsp_data = bsp_file.read()
-    bsp_data_view = memoryview(bsp_data)
-    bsp_size = len(bsp_data)
+def get_lump(bsp_bytes: bytes, index: int) -> bytes:
+    bsp_data_view = memoryview(bsp_bytes)
+    bsp_size = len(bsp_bytes)
     log.debug(f"BSP size: {bsp_size}")
     if bytes(bsp_data_view[0:4]) != bsp_head:
         raise Exception("Invalid BSP header")
@@ -85,8 +84,8 @@ def parse_entity_obj(lines: Iterable[str]) -> Iterable[Dict[str, str]]:
             entity_obj[key] = value
 
 
-def process_entities(bsp_file: IO) -> List[Dict[str, str]]:
-    return list(parse_entity_obj(str(get_lump(bsp_file, 0), encoding='ascii').splitlines()))
+def process_entities(bsp_data: bytes) -> List[Dict[str, str]]:
+    return list(parse_entity_obj(str(get_lump(bsp_data, 0), encoding='ascii').splitlines()))
 
 
 def process(files: Iterable[str]) -> Iterable[Union[PK3Entity, MapEntities]]:
@@ -113,7 +112,8 @@ def process_file(file_name: str) -> Union[PK3Entity, MapEntities]:
 
 def process_map_file(file_name: str) -> MapEntities:
     with open(file_name, 'rb') as bsp_file:
-        return MapEntities(file_name, process_entities(bsp_file))
+        bsp_data = bsp_file.read()
+        return MapEntities(file_name, bsp_hash(bsp_data), process_entities(bsp_data))
 
 
 def process_pk3_file(file_name: str) -> PK3Entity:
@@ -135,8 +135,9 @@ def _process_pk3_zip_maps(pk3_zip: ZipFile, bsp_name_list: Iterable[str]) -> Ite
     for bsp_file_name in bsp_name_list:
         log.info("Processing pk3 map: %s", bsp_file_name)
         with pk3_zip.open(bsp_file_name, 'r') as bsp_file:
-            entities = process_entities(bsp_file)
-        yield MapEntities(bsp_file_name[len("maps/"):-len(".bsp")], entities)
+            bsp_data = bsp_file.read()
+        entities = process_entities(bsp_data)
+        yield MapEntities(bsp_file_name[len("maps/"):-len(".bsp")], bsp_hash(bsp_data), entities)
 
 
 def json_formatted(entity_containers: Iterable[Union[MapEntities, PK3Entity]]):

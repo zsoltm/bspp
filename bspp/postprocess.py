@@ -80,6 +80,7 @@ def pp_map(m: MapEntities) -> Map:
     return Map(
         map_title,
         m.map_name,
+        m.crc,
         filter_aggregated(item_filter, aggregated_objects),
         filter_aggregated("weapon_", aggregated_objects),
         Flags(
