@@ -129,7 +129,7 @@ def process_pk3_zip(pk3_zip: ZipFile) -> PK3Entity:
     if log.isEnabledFor(logging.DEBUG):
         log.debug("Maps: %s", ", ".join(bsp_name_list))
     return PK3Entity(
-        pk3_zip.filename, pk3_hash_info(zip_info_list), list(_process_pk3_zip_maps(pk3_zip, bsp_name_list))
+        str(pk3_zip.filename), pk3_hash_info(zip_info_list), list(_process_pk3_zip_maps(pk3_zip, bsp_name_list))
     )
 
 

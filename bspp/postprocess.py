@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List, Iterable, Union, Callable
+from typing import Dict, List, Iterable, Union, Callable, Any
 
 from .model import Map, Flags, MapEntities
 
@@ -8,35 +8,35 @@ items_filtered = {"item_botroam"}
 
 
 def aggregate_by_classname(objects: List[Dict[str, str]]) -> Dict[str, List[Dict[str, str]]]:
-    by_classname = {}
+    by_classname: Dict[str, List[Dict[str, str]]] = {}
     for obj in objects:
         classname = obj["classname"]
         by_classname.setdefault(classname, []).append(obj)
     return by_classname
 
 
-def filter_aggregated(filter_spec: Union[str, Callable[[str], bool]], objects: Dict[str, List[any]]) -> Dict[str, int]:
+def filter_aggregated(filter_spec: Union[str, Callable[[str], bool]], objects: Dict[str, List]) -> Dict[str, int]:
     filter_l = (lambda n: n.startswith(filter_spec)) if isinstance(filter_spec, str) else filter_spec
     return {key: len(value) for (key, value) in objects.items() if filter_l(key)}
 
 
-def check_ctf_capable(objects: Dict[str, any]) -> bool:
+def check_ctf_capable(objects: Dict[str, Any]) -> bool:
     return "team_CTF_blueflag" in objects and "team_CTF_blueflag" in objects
 
 
-def check_1f_ctf_capable(objects: Dict[str, any]) -> bool:
+def check_1f_ctf_capable(objects: Dict[str, Any]) -> bool:
     return "team_CTF_neutralflag" in objects
 
 
-def check_overload_capable(objects: Dict[str, any]) -> bool:
+def check_overload_capable(objects: Dict[str, Any]) -> bool:
     return "team_redobelisk" in objects and "team_blueobelisk" in objects
 
 
-def check_harvester_capable(objects: Dict[str, any]) -> bool:
+def check_harvester_capable(objects: Dict[str, Any]) -> bool:
     return "team_neutralobelisk" in objects
 
 
-def has_any_key(objects: Dict[str, any], key_list: Iterable[str]) -> bool:
+def has_any_key(objects: Dict[str, Any], key_list: Iterable[str]) -> bool:
     haystack_keyset = set(objects.keys())
     return any([x in haystack_keyset for x in key_list])
 

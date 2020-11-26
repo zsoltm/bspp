@@ -1,6 +1,6 @@
 import logging
 import struct
-from typing import Union, Iterable, Tuple, Dict, Optional
+from typing import Union, Iterable, Tuple, Dict, Optional, Any
 
 from bspp.model import PK3Entity, MapEntities, Map
 from bspp.postprocess import pp_map
@@ -82,7 +82,7 @@ def plain_text(entity_containers: Iterable[Union[MapEntities, PK3Entity]]) -> No
         "harvester_capable": "Harvester capable",
     }
 
-    def longest_value(*dicts: Dict[any, str]) -> int:
+    def longest_value(*dicts: Dict[Any, str]) -> int:
         max_v_len = 0
         for d in dicts:
             for v in d.values():
@@ -95,7 +95,7 @@ def plain_text(entity_containers: Iterable[Union[MapEntities, PK3Entity]]) -> No
 
     def print_flag(flag: bool, dict_key: str, indent: str = "") -> None:
         if flag:
-            name = flag_to_name.get(dict_key)
+            name = flag_to_name[dict_key]
             print(f"{indent}{name.ljust(class_name_pad, '.')}", ": Yes")
 
     def section_title(title: str, indent: str = "", underline: str = "-"):
