@@ -17,7 +17,7 @@ $ pip install bspp
 Command line usage
 ------------------
 
-```bspp.py [-h] [-j] F [F ...]```
+`bspp.py [-h] [-j] F [F ...]`
 
 + `-j` toggles JSON output - plain text by default
 + `F` files (.bsp or .pk3) or directories to process
