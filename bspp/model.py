@@ -31,7 +31,8 @@ class Flags:
             overload_capable=self.overload_capable,
             harvester_capable=self.harvester_capable,
             ctf_1f_capable=self.ctf_1f_capable,
-            requires_ta=self.requires_ta)
+            requires_ta=self.requires_ta,
+        )
 
 
 @dataclass
@@ -50,7 +51,8 @@ class Map:
             crc=self.crc.hex(),
             aggregated_items=self.aggregated_items,
             aggregated_weapons=self.aggregated_weapons,
-            flags=self.flags.to_json())
+            flags=self.flags.to_json(),
+        )
 
 
 @dataclass
@@ -60,10 +62,7 @@ class PK3:
     maps: List[Map]
 
     def to_json(self):
-        return dict(
-            pk3_name=self.pk3_name,
-            crc=self.crc.hex(),
-            maps=[m.to_json() for m in self.maps])
+        return dict(pk3_name=self.pk3_name, crc=self.crc.hex(), maps=[m.to_json() for m in self.maps])
 
 
 class JSONEncodingAwareClassEncoder(JSONEncoder):

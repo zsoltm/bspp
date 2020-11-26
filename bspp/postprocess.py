@@ -4,7 +4,7 @@ from typing import Dict, List, Iterable, Union, Callable
 from .model import Map, Flags, MapEntities
 
 log = logging.getLogger(__name__)
-items_filtered = {'item_botroam'}
+items_filtered = {"item_botroam"}
 
 
 def aggregate_by_classname(objects: List[Dict[str, str]]) -> Dict[str, List[Dict[str, str]]]:
@@ -15,8 +15,7 @@ def aggregate_by_classname(objects: List[Dict[str, str]]) -> Dict[str, List[Dict
     return by_classname
 
 
-def filter_aggregated(filter_spec: Union[str, Callable[[str], bool]], objects: Dict[str, List[any]]) \
-        -> Dict[str, int]:
+def filter_aggregated(filter_spec: Union[str, Callable[[str], bool]], objects: Dict[str, List[any]]) -> Dict[str, int]:
     filter_l = (lambda n: n.startswith(filter_spec)) if type(filter_spec) == str else filter_spec
     return {key: len(value) for (key, value) in objects.items() if filter_l(key)}
 
@@ -43,9 +42,11 @@ def has_any_key(objects: Dict[str, any], key_list: Iterable[str]) -> bool:
 
 
 def item_filter(item):
-    return item.startswith("ammo_") \
-           or item.startswith("holdable_") \
-           or (item.startswith("item_") and item not in items_filtered)
+    return (
+        item.startswith("ammo_")
+        or item.startswith("holdable_")
+        or (item.startswith("item_") and item not in items_filtered)
+    )
 
 
 def pp_map(m: MapEntities) -> Map:
@@ -63,19 +64,27 @@ def pp_map(m: MapEntities) -> Map:
     overload_capable = check_overload_capable(aggregated_objects)
     harvester_capable = check_harvester_capable(aggregated_objects)
     ctf_1f_capable = check_1f_ctf_capable(aggregated_objects)
-    requires_ta = overload_capable or harvester_capable or ctf_1f_capable or has_any_key(aggregated_objects, [
-        "item_guard",
-        "item_doubler",
-        "item_scout",
-        "item_ammoregen",
-        "weapon_chaingun",
-        "weapon_prox_launcher",
-        "weapon_nailgun",
-        "ammo_belt",
-        "ammo_mines",
-        "ammo_nails",
-        "holdable_kamikaze",
-    ])
+    requires_ta = (
+        overload_capable
+        or harvester_capable
+        or ctf_1f_capable
+        or has_any_key(
+            aggregated_objects,
+            [
+                "item_guard",
+                "item_doubler",
+                "item_scout",
+                "item_ammoregen",
+                "weapon_chaingun",
+                "weapon_prox_launcher",
+                "weapon_nailgun",
+                "ammo_belt",
+                "ammo_mines",
+                "ammo_nails",
+                "holdable_kamikaze",
+            ],
+        )
+    )
 
     return Map(
         map_title,
@@ -83,9 +92,5 @@ def pp_map(m: MapEntities) -> Map:
         m.crc,
         filter_aggregated(item_filter, aggregated_objects),
         filter_aggregated("weapon_", aggregated_objects),
-        Flags(
-            ctf_capable,
-            overload_capable,
-            harvester_capable,
-            ctf_1f_capable,
-            requires_ta))
+        Flags(ctf_capable, overload_capable, harvester_capable, ctf_1f_capable, requires_ta),
+    )

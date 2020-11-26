@@ -1,0 +1,22 @@
+[build-system]
+requires = ["flit_core >=2,<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.black]
+line_length = 120
+target-version = ['py38']
+
+[tool.flit.metadata]
+module = "bspp"
+author = "Zsolt Mészárovics"
+author-email = "zsolt@meszarovics.me"
+home-page = "https://github.com/zsoltm/bspp"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "Topic :: Software Development :: Libraries",
+    "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
+    "Programming Language :: Python :: 3"
+]
+description-file = "README.md"

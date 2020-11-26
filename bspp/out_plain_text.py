@@ -33,7 +33,6 @@ _item_to_name = {
     "item_enviro": "Battle Suit",
     "item_haste": "Haste",
     "item_flight": "Flight",
-
     # ammo:
     "ammo_bullets": "Bullets",
     "ammo_shells": "Shotgun shells",
@@ -46,12 +45,11 @@ _item_to_name = {
     "ammo_nails": "Nails",  # ta
     "ammo_mines": "Proximity mines",  # ta
     "ammo_bfg": "BFG Ammo",
-
     "item_guard": "Guard",  # ta
     "item_doubler": "Doubler",  # ta
     "item_scout": "Scout",  # ta
     "item_ammoregen": "Ammo regen",  # ta
-
+    # holdable
     "holdable_kamikaze": "Kamikaze",  # ta
     "holdable_medkit": "Medkit",
     "holdable_teleporter": "Teleporter",
@@ -100,7 +98,7 @@ def plain_text(entity_containers: Iterable[Union[MapEntities, PK3Entity]]) -> No
             name = flag_to_name.get(dict_key)
             print(f"{indent}{name.ljust(class_name_pad, '.')}", ": Yes")
 
-    def section_title(title: str, indent: str = "", underline: str = '-'):
+    def section_title(title: str, indent: str = "", underline: str = "-"):
         print(f"{indent}{title}")
         print(f"{indent}{underline * len(title)}")
         print()

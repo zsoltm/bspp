@@ -41,11 +41,12 @@ def get_lump(bsp_bytes: bytes, index: int) -> bytes:
         raise Exception("Invalid BSP version")
     dir_entry_ofs = 8 + index * 8
     (offset, length) = struct.unpack(
-        '<2i', bytes(bsp_data_view[dir_entry_ofs:dir_entry_ofs + 8]))  # index 0 lump: entities
+        "<2i", bytes(bsp_data_view[dir_entry_ofs : dir_entry_ofs + 8])
+    )  # index 0 lump: entities
     log.debug(f"Entities lump is at offset {offset} with size {length}")
     if length < 0 or offset < 0x90 or offset + length > bsp_size:
         raise Exception("Invalid dir entry offsets")
-    return bytes(bsp_data_view[offset:offset + length - 1])
+    return bytes(bsp_data_view[offset : offset + length - 1])
 
 
 def parse_entity_obj(lines: Iterable[str]) -> Iterable[Dict[str, str]]:
@@ -85,7 +86,7 @@ def parse_entity_obj(lines: Iterable[str]) -> Iterable[Dict[str, str]]:
 
 
 def process_entities(bsp_data: bytes) -> List[Dict[str, str]]:
-    return list(parse_entity_obj(str(get_lump(bsp_data, 0), encoding='ascii').splitlines()))
+    return list(parse_entity_obj(str(get_lump(bsp_data, 0), encoding="ascii").splitlines()))
 
 
 def process(files: Iterable[str]) -> Iterable[Union[PK3Entity, MapEntities]]:
@@ -111,13 +112,13 @@ def process_file(file_name: str) -> Union[PK3Entity, MapEntities]:
 
 
 def process_map_file(file_name: str) -> MapEntities:
-    with open(file_name, 'rb') as bsp_file:
+    with open(file_name, "rb") as bsp_file:
         bsp_data = bsp_file.read()
         return MapEntities(file_name, bsp_hash(bsp_data), process_entities(bsp_data))
 
 
 def process_pk3_file(file_name: str) -> PK3Entity:
-    with ZipFile(file_name, 'r') as pk3_zip:
+    with ZipFile(file_name, "r") as pk3_zip:
         return process_pk3_zip(pk3_zip)
 
 
@@ -128,35 +129,40 @@ def process_pk3_zip(pk3_zip: ZipFile) -> PK3Entity:
     if log.isEnabledFor(logging.DEBUG):
         log.debug("Maps: %s", ", ".join(bsp_name_list))
     return PK3Entity(
-        pk3_zip.filename, pk3_hash_info(zip_info_list), list(_process_pk3_zip_maps(pk3_zip, bsp_name_list)))
+        pk3_zip.filename, pk3_hash_info(zip_info_list), list(_process_pk3_zip_maps(pk3_zip, bsp_name_list))
+    )
 
 
 def _process_pk3_zip_maps(pk3_zip: ZipFile, bsp_name_list: Iterable[str]) -> Iterable[MapEntities]:
     for bsp_file_name in bsp_name_list:
         log.info("Processing pk3 map: %s", bsp_file_name)
-        with pk3_zip.open(bsp_file_name, 'r') as bsp_file:
+        with pk3_zip.open(bsp_file_name, "r") as bsp_file:
             bsp_data = bsp_file.read()
         entities = process_entities(bsp_data)
-        yield MapEntities(bsp_file_name[len("maps/"):-len(".bsp")], bsp_hash(bsp_data), entities)
+        yield MapEntities(bsp_file_name[len("maps/") : -len(".bsp")], bsp_hash(bsp_data), entities)
 
 
 def json_formatted(entity_containers: Iterable[Union[MapEntities, PK3Entity]]):
     from bspp.model import JSONEncodingAwareClassEncoder
-    processed = [pp_map(x) if type(x) is MapEntities
-                 else PK3(x.pk3_name, x.crc, [pp_map(me) for me in x.map_entities]) for x in entity_containers]
+
+    processed = [
+        pp_map(x) if type(x) is MapEntities else PK3(x.pk3_name, x.crc, [pp_map(me) for me in x.map_entities])
+        for x in entity_containers
+    ]
     print(json.dumps(processed, indent=True, cls=JSONEncodingAwareClassEncoder))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import argparse
     from bspp.out_plain_text import plain_text
 
     logging.basicConfig(level=logging.INFO)
 
-    parser = argparse.ArgumentParser(description='BSP info tool')
-    parser.add_argument('files', metavar='F', nargs='+', help="a .bsp or pk3 or file or folder to be processed")
-    parser.add_argument('-j', dest='output', action='store_const', default=plain_text, const=json_formatted,
-                        help='JSON output')
+    parser = argparse.ArgumentParser(description="BSP info tool")
+    parser.add_argument("files", metavar="F", nargs="+", help="a .bsp or pk3 or file or folder to be processed")
+    parser.add_argument(
+        "-j", dest="output", action="store_const", default=plain_text, const=json_formatted, help="JSON output"
+    )
     parsed = parser.parse_args()
 
     if len(parsed.files) < 1:
