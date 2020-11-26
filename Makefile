@@ -1,13 +1,23 @@
 format:
 	black bspp tests
 
-lint:
-	black --check bspp tests
+pylint:
 	pylint --rcfile .pylint bspp/*.py
+
+lint: pylint
+	black --check bspp tests
 	mypy bspp/*.py
 
-release: lint test
-	flit publish
+lint_3.9:
+    # pylint is currently not compatible with python 3.9: https://github.com/PyCQA/pylint/issues/3882
+	black --check bspp tests
+	mypy bspp/*.py
+
+clean:
+	rm -Rf dist
+
+release: clean lint test
+	flit --repository testpypi publish
 
 test:
 	python -m unittest -v tests
