@@ -1,8 +1,8 @@
 format:
-	black bspp
+	black bspp tests
 
 lint:
-	black --check bspp
+	black --check bspp tests
 	pylint --rcfile .pylint bspp/*.py
 	mypy bspp/*.py
 
