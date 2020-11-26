@@ -279,22 +279,23 @@ def plain_text(entities_by_map: Dict[str, List[Dict[str, str]]]):
 
 
 def json_formatted(files_entities_list: Dict[str, List[Dict[str, str]]]):
-    print(json.dumps(files_entities_list, indent=True))
+    from bspp.model import JSONEncodingAwareClassEncoder
+    processed = list(pp(files_entities_list))
+    print(json.dumps(processed, indent=True, cls=JSONEncodingAwareClassEncoder))
 
 
 if __name__ == '__main__':
     import argparse
-    import sys
 
     logging.basicConfig(level=logging.INFO)
 
     parser = argparse.ArgumentParser(description='BSP info tool')
+    parser.add_argument('files', metavar='F', nargs='+', help="a .bsp or pk3 or file or folder to be processed")
     parser.add_argument('-j', dest='output', action='store_const', default=plain_text, const=json_formatted,
                         help='JSON output')
-    parser.add_argument('files', metavar='F', nargs='+', help="a .bsp or pk3 or file or folder to be processed")
-    parsed = parser.parse_args(sys.argv)
+    parsed = parser.parse_args()
 
     if len(parsed.files) < 2:
         log.warning("No files specified")
 
-    parsed.output(map_dict(process(parsed.files[1:])))
+    parsed.output(map_dict(process(parsed.files)))
