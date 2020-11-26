@@ -41,3 +41,8 @@ jobs:
         run: make test
       - name: Lint
         run: make lint
+        if: ${{ matrix.python != '3.9' }}
+      - name: Lint-3.9
+        run: make lint_3.9
+        if: ${{ matrix.python == '3.9' }}
+    
