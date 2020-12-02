@@ -17,7 +17,7 @@ clean:
 	rm -Rf dist
 
 release: clean lint test
-	flit --repository testpypi publish
+	flit publish
 
 test:
 	python -m unittest -v tests
