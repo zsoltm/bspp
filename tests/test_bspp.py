@@ -61,6 +61,6 @@ class TestBspp(TestCase):
         self.assertEqual(len(j1map.entities), num_entities)
 
     def __assert_pk3(self, pk3, pk3_name: str, crc, map_num):
-        self.assertTrue(pk3.pk3_name.endswith("%s" % pk3_name))
+        self.assertTrue(pk3.pk3_name.endswith(pk3_name))
         self.assertEqual(pk3.crc.hex(), crc)
         self.assertEqual(len(pk3.map_entities), map_num)

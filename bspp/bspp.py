@@ -124,8 +124,7 @@ def process_pk3_file(file_name: str) -> PK3Entity:
 
 def process_pk3_zip(pk3_zip: ZipFile) -> PK3Entity:
     zip_info_list = pk3_zip.infolist()
-    zip_name_list = map(lambda entry: entry.filename, zip_info_list)
-    bsp_name_list = filter(is_pk3_bsp, zip_name_list)
+    bsp_name_list = list(filter(is_pk3_bsp, map(lambda entry: entry.filename, zip_info_list)))
     if log.isEnabledFor(logging.DEBUG):
         log.debug("Maps: %s", ", ".join(bsp_name_list))
     return PK3Entity(
